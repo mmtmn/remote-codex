@@ -9,6 +9,7 @@ export const PermissionPolicySchema = z.object({
   readWorkspace: z.enum(ACTION_PERMISSION_MODES).default("allow"),
   runCodex: z.enum(ACTION_PERMISSION_MODES).default("ask"),
   runInspectionCommands: z.enum(ACTION_PERMISSION_MODES).default("ask"),
+  codexUi: z.enum(ACTION_PERMISSION_MODES).default("ask"),
   applyPatch: z.enum(ACTION_PERMISSION_MODES).default("ask")
 });
 
@@ -174,6 +175,22 @@ export const CommandEventPayloadSchema = z.object({
   content: z.string()
 });
 
+export const CodexUiActionSchema = z.enum(["openSidebar", "newThread", "addSelection", "addFile"]);
+
+export type CodexUiAction = z.infer<typeof CodexUiActionSchema>;
+
+export const CodexUiRequestPayloadSchema = z.object({
+  type: z.literal("codexUiRequest"),
+  action: CodexUiActionSchema
+});
+
+export const CodexUiEventPayloadSchema = z.object({
+  type: z.literal("codexUiEvent"),
+  action: CodexUiActionSchema,
+  status: z.enum(["started", "finished", "error"]),
+  content: z.string()
+});
+
 export const CodexRunRequestPayloadSchema = z.object({
   type: z.literal("codexRunRequest"),
   requestId: z.string(),
@@ -220,6 +237,8 @@ export const EncryptedPayloadSchema = z.discriminatedUnion("type", [
   CommandListPayloadSchema,
   RunCommandPayloadSchema,
   CommandEventPayloadSchema,
+  CodexUiRequestPayloadSchema,
+  CodexUiEventPayloadSchema,
   CodexRunRequestPayloadSchema,
   CodexRunEventPayloadSchema,
   PatchProposalPayloadSchema,

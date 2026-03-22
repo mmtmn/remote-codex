@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import {
   type ActionPermissionMode,
   type CodexPatchProposal,
+  type CodexUiAction,
   CodexPatchProposalSchema,
   type EncryptedPayload,
   createKeyPair,
@@ -29,6 +30,7 @@ const execFileAsync = promisify(execFile);
 const MAX_PREVIEW_CHARS = 1200;
 const MAX_FILE_CHARS = 24_000;
 const DANGEROUS_COMMAND_PATTERN = /[|&;<>()$`\\]/;
+const OFFICIAL_CODEX_EXTENSION_ID = "openai.chatgpt";
 
 type PermissionAction = keyof PermissionPolicy;
 
@@ -66,6 +68,12 @@ class RemoteCodexController implements vscode.Disposable {
       vscode.commands.registerCommand("remoteCodex.stopSession", () => this.stopSession()),
       vscode.commands.registerCommand("remoteCodex.copyPairingLink", () => this.copyPairingLink()),
       vscode.commands.registerCommand("remoteCodex.reviewLatestPatch", () => this.reviewLatestPatch()),
+      vscode.commands.registerCommand("remoteCodex.openCodexSidebar", () => this.runOfficialCodexCommand("openSidebar")),
+      vscode.commands.registerCommand("remoteCodex.newCodexThread", () => this.runOfficialCodexCommand("newThread")),
+      vscode.commands.registerCommand("remoteCodex.addSelectionToCodexThread", () =>
+        this.runOfficialCodexCommand("addSelection")
+      ),
+      vscode.commands.registerCommand("remoteCodex.addFileToCodexThread", () => this.runOfficialCodexCommand("addFile")),
       vscode.workspace.onDidChangeTextDocument(() => this.queueSnapshotPush()),
       vscode.window.onDidChangeTextEditorSelection(() => this.queueSnapshotPush()),
       vscode.window.onDidChangeVisibleTextEditors(() => this.queueSnapshotPush()),
@@ -81,6 +89,15 @@ class RemoteCodexController implements vscode.Disposable {
   }
 
   private async startSession(): Promise<void> {
+    if (!vscode.workspace.isTrusted) {
+      vscode.window.showErrorMessage("Remote Codex requires a trusted workspace before it can pair with a phone.");
+      return;
+    }
+
+    if (!(await this.ensureCodexExtensionAvailable(true))) {
+      return;
+    }
+
     if (this.session) {
       const restart = await vscode.window.showWarningMessage(
         "A Remote Codex session is already running.",
@@ -287,6 +304,9 @@ class RemoteCodexController implements vscode.Disposable {
       case "runCommand":
         await this.runInspectionCommand(payload.command);
         return;
+      case "codexUiRequest":
+        await this.runRemoteCodexUiRequest(payload.action);
+        return;
       case "codexRunRequest":
         await this.runCodexRequest(payload.requestId, payload.prompt);
         return;
@@ -298,6 +318,7 @@ class RemoteCodexController implements vscode.Disposable {
       case "gitDiff":
       case "commandList":
       case "commandEvent":
+      case "codexUiEvent":
       case "codexRunEvent":
       case "patchProposal":
       case "applyPatchDecision":
@@ -374,6 +395,49 @@ class RemoteCodexController implements vscode.Disposable {
         content: code === 0 ? "Command finished successfully." : `Command exited with code ${code ?? "unknown"}.`
       });
     });
+  }
+
+  private async runRemoteCodexUiRequest(action: CodexUiAction): Promise<void> {
+    const promptByAction: Record<CodexUiAction, string> = {
+      openSidebar: "Let the phone open the Codex sidebar in VS Code?",
+      newThread: "Let the phone open a new Codex thread in VS Code?",
+      addSelection: "Let the phone add the active selection to the current Codex thread?",
+      addFile: "Let the phone add the active file to the current Codex thread?"
+    };
+
+    if (!(await this.requestPermission("codexUi", promptByAction[action]))) {
+      this.sendEncrypted({
+        type: "codexUiEvent",
+        action,
+        status: "error",
+        content: "The desktop denied this Codex UI request."
+      });
+      return;
+    }
+
+    this.sendEncrypted({
+      type: "codexUiEvent",
+      action,
+      status: "started",
+      content: "Triggering the installed Codex extension..."
+    });
+
+    try {
+      await this.runOfficialCodexCommand(action);
+      this.sendEncrypted({
+        type: "codexUiEvent",
+        action,
+        status: "finished",
+        content: "The Codex UI action completed on the desktop."
+      });
+    } catch (error) {
+      this.sendEncrypted({
+        type: "codexUiEvent",
+        action,
+        status: "error",
+        content: error instanceof Error ? error.message : "Unable to trigger the Codex UI action."
+      });
+    }
   }
 
   private async runCodexRequest(requestId: string, prompt: string): Promise<void> {
@@ -709,8 +773,58 @@ class RemoteCodexController implements vscode.Disposable {
       readWorkspace: config.get<ActionPermissionMode>("permissions.readWorkspace", "allow"),
       runCodex: config.get<ActionPermissionMode>("permissions.runCodex", "ask"),
       runInspectionCommands: config.get<ActionPermissionMode>("permissions.runInspectionCommands", "ask"),
+      codexUi: config.get<ActionPermissionMode>("permissions.codexUi", "ask"),
       applyPatch: config.get<ActionPermissionMode>("permissions.applyPatch", "ask")
     };
+  }
+
+  private async ensureCodexExtensionAvailable(promptInstall = false): Promise<boolean> {
+    const extension = vscode.extensions.getExtension(OFFICIAL_CODEX_EXTENSION_ID);
+    if (extension) {
+      return true;
+    }
+
+    if (!promptInstall) {
+      return false;
+    }
+
+    const answer = await vscode.window.showErrorMessage(
+      "Remote Codex Relay requires the OpenAI ChatGPT/Codex VS Code extension.",
+      "Install OpenAI Extension"
+    );
+    if (answer === "Install OpenAI Extension") {
+      await vscode.commands.executeCommand("workbench.extensions.search", `@id:${OFFICIAL_CODEX_EXTENSION_ID}`);
+    }
+    return false;
+  }
+
+  private async runOfficialCodexCommand(action: CodexUiAction): Promise<void> {
+    if (!(await this.ensureCodexExtensionAvailable(true))) {
+      throw new Error("The OpenAI ChatGPT/Codex extension is not installed.");
+    }
+
+    const extension = vscode.extensions.getExtension(OFFICIAL_CODEX_EXTENSION_ID);
+    if (extension && !extension.isActive) {
+      await extension.activate();
+    }
+
+    const activeEditor = vscode.window.activeTextEditor;
+    if ((action === "addSelection" || action === "addFile") && !activeEditor) {
+      throw new Error("Open a file in VS Code before sending file or selection context to Codex.");
+    }
+
+    if (action === "addSelection" && (!activeEditor || activeEditor.selection.isEmpty)) {
+      throw new Error("Select some text before sending a selection to Codex.");
+    }
+
+    const commandByAction: Record<CodexUiAction, string> = {
+      openSidebar: "chatgpt.openSidebar",
+      newThread: "chatgpt.newCodexPanel",
+      addSelection: "chatgpt.addToThread",
+      addFile: "chatgpt.addFileToThread"
+    };
+
+    await vscode.commands.executeCommand(commandByAction[action]);
   }
 
   private getAllowlistedCommands(): string[] {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   type CodexPatchProposal,
+  type CodexUiAction,
   createKeyPair,
   decryptPayload,
   deriveSharedKey,
@@ -162,6 +163,9 @@ export function App() {
       case "commandEvent":
         pushEvent(payload.command, payload.content || payload.status);
         return;
+      case "codexUiEvent":
+        pushEvent(`Codex UI ${payload.status}`, `${payload.action}: ${payload.content}`);
+        return;
       case "codexRunEvent":
         pushEvent(`Codex ${payload.status}`, payload.content);
         return;
@@ -179,6 +183,7 @@ export function App() {
       case "requestFile":
       case "requestGitDiff":
       case "runCommand":
+      case "codexUiRequest":
       case "codexRunRequest":
       case "applyPatchRequest":
         return;
@@ -231,6 +236,13 @@ export function App() {
     sendEncrypted({
       type: "runCommand",
       command
+    });
+  }
+
+  function requestCodexUi(action: CodexUiAction): void {
+    sendEncrypted({
+      type: "codexUiRequest",
+      action
     });
   }
 
@@ -371,6 +383,28 @@ export function App() {
 
         <article className="card">
           <div className="card-header">
+            <h2>Official Codex</h2>
+          </div>
+          <p className="meta">Trigger the installed Codex extension on the desktop without exposing arbitrary VS Code commands.</p>
+          <div className="pill-row">
+            <button className="pill" onClick={() => requestCodexUi("openSidebar")}>
+              Open Sidebar
+            </button>
+            <button className="pill" onClick={() => requestCodexUi("newThread")}>
+              New Thread
+            </button>
+            <button className="pill" onClick={() => requestCodexUi("addSelection")}>
+              Add Selection
+            </button>
+            <button className="pill" onClick={() => requestCodexUi("addFile")}>
+              Add File
+            </button>
+          </div>
+          <p className="meta">The selection and file actions use the active editor on the desktop and still respect local permission prompts.</p>
+        </article>
+
+        <article className="card">
+          <div className="card-header">
             <h2>Run Codex</h2>
             {proposal ? <button onClick={requestPatchApply}>Request Apply</button> : null}
           </div>
@@ -407,4 +441,3 @@ export function App() {
     </main>
   );
 }
-

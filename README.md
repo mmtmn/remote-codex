@@ -4,7 +4,7 @@ Use Codex from your phone without turning your desktop into an unaudited remote 
 
 This repository ships three pieces:
 
-- `extensions/vscode`: the trusted desktop agent inside VS Code
+- `extensions/vscode`: the trusted desktop companion extension inside regular VS Code
 - `apps/relay-server`: a self-hostable websocket relay that only brokers session setup and encrypted envelopes
 - `apps/mobile`: an Android-friendly PWA for pairing, workspace inspection, prompt submission, and patch review requests
 
@@ -16,9 +16,10 @@ The safest usable flow is read-first:
 2. The phone joins through the relay with the session ID and secret.
 3. The desktop and phone derive a shared key and encrypt all workspace/prompt traffic end-to-end.
 4. The phone can inspect workspace state, visible files, diagnostics, git diffs, and allowlisted inspection commands.
-5. The phone can ask the desktop to run local `codex exec` in read-only mode.
-6. Codex returns a patch proposal.
-7. The desktop user still has to click `Apply Patch` locally in VS Code before anything touches the repository.
+5. The phone can trigger a narrow set of official Codex UI actions on the desktop: open Codex, start a new Codex thread, add the active selection, or add the active file.
+6. The phone can ask the desktop to run local `codex exec` in read-only mode.
+7. Codex returns a patch proposal.
+8. The desktop user still has to click `Apply Patch` locally in VS Code before anything touches the repository.
 
 The relay never decrypts file contents, diffs, prompts, or patch proposals.
 
@@ -28,6 +29,7 @@ The relay never decrypts file contents, diffs, prompts, or patch proposals.
 - Relay joins require a session ID plus pairing secret.
 - Desktop-to-phone payloads are NaCl-encrypted end-to-end after pairing.
 - Workspace reads, Codex execution, inspection commands, and patch review requests each have independent `allow | ask | deny` controls.
+- Official Codex UI actions are also behind their own `allow | ask | deny` permission.
 - Remote commands are exact-match allowlist entries only.
 - Codex runs in `read-only` sandbox mode and returns a patch proposal instead of editing the workspace directly.
 - Patch application is always a local action in VS Code.
@@ -84,22 +86,28 @@ If `dev:watch` fails with `ENOSPC`, either keep using `dev` or raise your inotif
 
 Open the served mobile URL on your phone, or deploy the built `apps/mobile/dist` bundle to any static host.
 
-### 4. Run the VS Code extension
+### 4. Package and install the VS Code companion extension
 
 ```bash
-pnpm --filter @remote-codex/vscode-extension build
+pnpm package:extension
+code --install-extension dist/remote-codex-relay.vsix --force
 ```
 
-Then in VS Code:
+The packaged extension depends on the official OpenAI VS Code extension (`openai.chatgpt`). Install that first if you do not already have it.
 
-1. Open the workspace at [extensions/vscode](/home/mmtmn/remote-codex/extensions/vscode).
-2. Press `F5` to launch an Extension Development Host.
-3. In the new window, run `Remote Codex: Start Session`.
+### 5. Start a session from regular VS Code
+
+1. Open the repository you actually want to work on in regular VS Code.
+2. Set these settings if the auto-detected hotspot/LAN address is wrong:
+   - `remoteCodex.relayUrl`
+   - `remoteCodex.mobileUrl`
+   - `remoteCodex.mobileRelayUrl`
+3. Run `Remote Codex: Start Session`.
 4. Scan the QR code from the phone client.
 
 The extension will auto-derive LAN-friendly pairing URLs when possible. If it guesses the wrong interface because of VPNs or multiple NICs, set `remoteCodex.mobileUrl` and `remoteCodex.mobileRelayUrl` manually.
 
-### 5. Remote workflow
+### 6. Remote workflow
 
 From the phone you can:
 
@@ -107,6 +115,7 @@ From the phone you can:
 - open visible files
 - inspect repo or file diffs
 - run allowlisted inspection commands
+- trigger the official Codex sidebar, a new Codex thread, or add the active selection/file to the current Codex thread
 - submit a remote Codex prompt
 - request local review/apply for the proposed patch
 
@@ -175,6 +184,14 @@ pnpm test
 pnpm build
 ```
 
+If you are developing the companion extension itself, the old extension-host loop is still available:
+
+```bash
+code /home/mmtmn/remote-codex/extensions/vscode
+```
+
+Then press `F5` inside that extension workspace to launch an Extension Development Host.
+
 ## Current scope
 
-This is a secure MVP aimed at the desktop-phone relay problem, not a full remote-control clone of the Codex VS Code extension internals. The desktop side invokes the local `codex` CLI in read-only mode and keeps final patch application local on purpose.
+This is a secure companion for the real Codex VS Code extension, not an unsupported deep fork of its private internals. The relay now drives the public OpenAI/Codex VS Code commands where available, but patch proposal generation still uses the local `codex` CLI in read-only mode because the official extension does not expose a stable prompt-and-patch API for third parties.

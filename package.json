@@ -19,7 +19,9 @@
     "start:relay": "pnpm --filter @remote-codex/relay-server start",
     "dev:mobile": "pnpm --filter @remote-codex/mobile dev",
     "dev:mobile:watch": "pnpm --filter @remote-codex/mobile dev:watch",
-    "dev:vscode": "pnpm --filter @remote-codex/vscode-extension watch",
+    "dev:vscode": "pnpm --filter remote-codex-relay watch",
+    "package:extension": "pnpm --filter remote-codex-relay package:vsix",
+    "install:extension": "pnpm package:extension && pnpm --filter remote-codex-relay install:local",
     "doctor:linux-firewall": "bash ./scripts/check-linux-firewall.sh"
   },
   "devDependencies": {

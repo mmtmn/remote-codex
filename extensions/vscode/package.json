@@ -1,41 +1,72 @@
 {
-  "name": "@remote-codex/vscode-extension",
+  "name": "remote-codex-relay",
   "displayName": "Remote Codex Relay",
   "description": "Use Codex from your phone with a secure relay and explicit local approvals.",
   "version": "0.1.0",
   "publisher": "mmtmn",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mmtmn/remote-codex.git"
+  },
   "engines": {
     "vscode": "^1.96.0"
   },
+  "extensionDependencies": [
+    "openai.chatgpt"
+  ],
+  "keywords": [
+    "codex",
+    "openai",
+    "relay",
+    "mobile",
+    "android"
+  ],
   "categories": [
     "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished",
-    "onCommand:remoteCodex.startSession",
-    "onCommand:remoteCodex.stopSession",
-    "onCommand:remoteCodex.copyPairingLink",
-    "onCommand:remoteCodex.reviewLatestPatch"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "remoteCodex.startSession",
-        "title": "Remote Codex: Start Session"
+        "title": "Remote Codex: Start Session",
+        "category": "Remote Codex"
       },
       {
         "command": "remoteCodex.stopSession",
-        "title": "Remote Codex: Stop Session"
+        "title": "Remote Codex: Stop Session",
+        "category": "Remote Codex"
       },
       {
         "command": "remoteCodex.copyPairingLink",
-        "title": "Remote Codex: Copy Pairing Link"
+        "title": "Remote Codex: Copy Pairing Link",
+        "category": "Remote Codex"
       },
       {
         "command": "remoteCodex.reviewLatestPatch",
-        "title": "Remote Codex: Review Latest Patch"
+        "title": "Remote Codex: Review Latest Patch",
+        "category": "Remote Codex"
+      },
+      {
+        "command": "remoteCodex.openCodexSidebar",
+        "title": "Remote Codex: Open Codex Sidebar",
+        "category": "Remote Codex"
+      },
+      {
+        "command": "remoteCodex.newCodexThread",
+        "title": "Remote Codex: New Codex Thread",
+        "category": "Remote Codex"
+      },
+      {
+        "command": "remoteCodex.addSelectionToCodexThread",
+        "title": "Remote Codex: Add Selection To Codex Thread",
+        "category": "Remote Codex"
+      },
+      {
+        "command": "remoteCodex.addFileToCodexThread",
+        "title": "Remote Codex: Add Active File To Codex Thread",
+        "category": "Remote Codex"
       }
     ],
     "configuration": {
@@ -86,6 +117,16 @@
           "default": "ask",
           "description": "Whether the phone can run allowlisted local inspection commands."
         },
+        "remoteCodex.permissions.codexUi": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "default": "ask",
+          "description": "Whether the phone can trigger the installed OpenAI Codex UI commands in VS Code."
+        },
         "remoteCodex.permissions.applyPatch": {
           "type": "string",
           "enum": [
@@ -125,10 +166,13 @@
     }
   },
   "scripts": {
+    "vscode:prepublish": "pnpm build",
     "build": "tsup src/extension.ts --format cjs --external vscode",
     "watch": "tsup src/extension.ts --format cjs --watch --external vscode",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "package:vsix": "vsce package --no-dependencies --out ../../dist/remote-codex-relay.vsix",
+    "install:local": "code --install-extension ../../dist/remote-codex-relay.vsix --force"
   },
   "dependencies": {
     "@remote-codex/protocol": "workspace:*",
@@ -136,6 +180,7 @@
     "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@vscode/vsce": "^3.6.1",
     "@types/qrcode": "^1.5.5",
     "@types/vscode": "^1.96.0",
     "@types/ws": "^8.5.14"

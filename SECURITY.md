@@ -16,6 +16,7 @@ Remote Codex assumes:
 - The relay only sees session metadata and encrypted envelope blobs.
 - Remote file access is limited to the current VS Code workspace.
 - Remote commands are exact strings from a local allowlist.
+- Remote Codex UI control is limited to a fixed set of official OpenAI extension commands.
 - Remote Codex execution uses `codex exec -s read-only`.
 - Patch application requires a local desktop click in the VS Code extension.
 - Git patch application is checked before apply.
@@ -26,6 +27,7 @@ Remote Codex assumes:
 - Serve the relay over `wss://`.
 - Do not expose the development mobile server directly on the public internet; if you serve the preview from your desktop for phone access, treat port `4173` as another endpoint that may need LAN-only firewall rules.
 - Keep the command allowlist read-only.
+- Keep `remoteCodex.permissions.codexUi` on `ask` unless you explicitly trust the paired phone to drive the installed Codex UI.
 - Do not set all permissions to `allow` unless the desktop is otherwise isolated.
 - Rotate relay deployments normally; there is no persistent relay-side session storage in this version.
 
@@ -33,6 +35,7 @@ Remote Codex assumes:
 
 - The relay is currently single-instance and in-memory.
 - The extension currently models terminal access as allowlisted inspection commands, not arbitrary live terminal mirroring.
+- The OpenAI Codex extension does not expose a stable third-party prompt API, so deep remote control of its private webview internals is intentionally out of scope.
 - A local user with direct access to the desktop can still approve and apply unsafe patches; this project protects against remote misuse, not malicious local operators.
 
 ## Reporting
