@@ -45,12 +45,12 @@ pnpm install
 ### 2. Start the relay
 
 ```bash
-pnpm --filter @remote-codex/relay-server dev
+HOST=0.0.0.0 PORT=8787 pnpm --filter @remote-codex/relay-server dev
 ```
 
 This now runs the relay without file watching, which avoids the common Linux `ENOSPC` inotify limit crash during first-run setup.
 
-The relay binds to `127.0.0.1:8787` by default and exposes `GET /healthz`.
+For the phone-on-LAN setup, the relay must be reachable from the phone, so the quickstart uses `HOST=0.0.0.0`.
 
 If you want automatic reloads while developing the relay itself, use:
 
@@ -72,7 +72,17 @@ sudo sysctl --system
 pnpm --filter @remote-codex/mobile dev
 ```
 
-Open the shown URL on your phone, or deploy the built `apps/mobile/dist` bundle to any static host.
+This now builds once and serves a static preview on `0.0.0.0:4173`, so it works on Linux systems that cannot spare more file watchers.
+
+If you want Vite hot reload while developing the mobile app itself, use:
+
+```bash
+pnpm --filter @remote-codex/mobile dev:watch
+```
+
+If `dev:watch` fails with `ENOSPC`, either keep using `dev` or raise your inotify watcher limit with the same sysctl values shown above.
+
+Open the served mobile URL on your phone, or deploy the built `apps/mobile/dist` bundle to any static host.
 
 ### 4. Run the VS Code extension
 
@@ -86,6 +96,8 @@ Then in VS Code:
 2. Press `F5` to launch an Extension Development Host.
 3. In the new window, run `Remote Codex: Start Session`.
 4. Scan the QR code from the phone client.
+
+The extension will auto-derive LAN-friendly pairing URLs when possible. If it guesses the wrong interface because of VPNs or multiple NICs, set `remoteCodex.mobileUrl` and `remoteCodex.mobileRelayUrl` manually.
 
 ### 5. Remote workflow
 
@@ -130,6 +142,12 @@ Then verify the firewall path on Linux:
 pnpm doctor:linux-firewall
 ```
 
+If you also serve the mobile preview from your desktop, you may need to check port `4173` too:
+
+```bash
+HOST=0.0.0.0 PORT=4173 pnpm doctor:linux-firewall
+```
+
 Typical commands if you mean to expose TCP `8787`:
 
 ```bash
@@ -143,6 +161,7 @@ Only do that for a relay you actually intend to expose. For internet-facing use,
 
 - Put the relay behind TLS before using it outside a trusted network.
 - Keep the default `HOST=127.0.0.1` unless you explicitly need remote access.
+- The default mobile `dev` script is intentionally no-watch; use `dev:watch` only when you actually need HMR.
 - Treat the mobile client as untrusted for writes. Keep `remoteCodex.permissions.applyPatch` on `ask`.
 - Do not add shell pipelines, redirects, or mutation commands to `remoteCodex.commandAllowlist`.
 - Keep the relay ephemeral. This implementation stores sessions in memory and is meant for a single instance.

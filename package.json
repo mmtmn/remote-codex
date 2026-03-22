@@ -18,6 +18,7 @@
     "dev:relay:watch": "pnpm --filter @remote-codex/relay-server dev:watch",
     "start:relay": "pnpm --filter @remote-codex/relay-server start",
     "dev:mobile": "pnpm --filter @remote-codex/mobile dev",
+    "dev:mobile:watch": "pnpm --filter @remote-codex/mobile dev:watch",
     "dev:vscode": "pnpm --filter @remote-codex/vscode-extension watch",
     "doctor:linux-firewall": "bash ./scripts/check-linux-firewall.sh"
   },

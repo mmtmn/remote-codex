@@ -71,6 +71,16 @@ socketServer.on("connection", (socket) => {
   });
 });
 
+server.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`relay-server could not bind ${HOST}:${PORT} because that address is already in use.`);
+    console.error("Choose a different PORT or stop the process already listening there.");
+    process.exit(1);
+  }
+
+  throw error;
+});
+
 server.listen(PORT, HOST, () => {
   console.log(formatStartupMessage(HOST, PORT));
 });

@@ -24,7 +24,7 @@ Remote Codex assumes:
 
 - Keep the relay on `HOST=127.0.0.1` unless you explicitly need LAN or internet access.
 - Serve the relay over `wss://`.
-- Do not expose the development mobile server directly on the public internet.
+- Do not expose the development mobile server directly on the public internet; if you serve the preview from your desktop for phone access, treat port `4173` as another endpoint that may need LAN-only firewall rules.
 - Keep the command allowlist read-only.
 - Do not set all permissions to `allow` unless the desktop is otherwise isolated.
 - Rotate relay deployments normally; there is no persistent relay-side session storage in this version.

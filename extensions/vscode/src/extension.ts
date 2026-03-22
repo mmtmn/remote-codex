@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { networkInterfaces, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { promisify } from "node:util";
 
@@ -40,6 +40,9 @@ interface ActiveSession {
   webSocket: WebSocket;
   relayUrl: string;
   pairingLink: string;
+  pairingRelayUrl: string;
+  pairingClientUrl: string;
+  pairingNotes: string[];
   sharedKey: Uint8Array | undefined;
 }
 
@@ -96,8 +99,9 @@ class RemoteCodexController implements vscode.Disposable {
     const pairingSecret = generatePairingSecret();
     const keyPair = createKeyPair();
     const permissions = this.getPermissions();
-    const pairingLink = this.buildPairingLink({
-      relayUrl,
+    const pairingTargets = this.getPairingTargets(relayUrl);
+    const pairingLink = this.buildPairingLink(pairingTargets.mobileClientUrl, {
+      relayUrl: pairingTargets.mobileRelayUrl,
       sessionId,
       pairingSecret
     });
@@ -112,6 +116,9 @@ class RemoteCodexController implements vscode.Disposable {
       webSocket,
       relayUrl,
       pairingLink,
+      pairingRelayUrl: pairingTargets.mobileRelayUrl,
+      pairingClientUrl: pairingTargets.mobileClientUrl,
+      pairingNotes: pairingTargets.notes,
       sharedKey: undefined
     };
     this.session = session;
@@ -167,6 +174,9 @@ class RemoteCodexController implements vscode.Disposable {
     });
 
     await this.showPairingPanel(session);
+    if (session.pairingNotes.length > 0) {
+      void vscode.window.showWarningMessage(session.pairingNotes.join(" "));
+    }
     vscode.window.showInformationMessage(`Remote Codex session ${sessionId} is ready for pairing.`);
   }
 
@@ -718,18 +728,46 @@ class RemoteCodexController implements vscode.Disposable {
     return vscode.workspace.getConfiguration("remoteCodex").get<string>("relayUrl", "ws://127.0.0.1:8787");
   }
 
+  private getMobileRelayUrl(): string {
+    return vscode.workspace.getConfiguration("remoteCodex").get<string>("mobileRelayUrl", "").trim();
+  }
+
   private getMobileUrl(): string {
-    return vscode.workspace.getConfiguration("remoteCodex").get<string>("mobileUrl", "http://127.0.0.1:4173");
+    return vscode.workspace.getConfiguration("remoteCodex").get<string>("mobileUrl", "").trim();
   }
 
   private getWorkspaceRoot(): string | undefined {
     return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   }
 
-  private buildPairingLink(values: { relayUrl: string; sessionId: string; pairingSecret: string }): string {
-    const url = new URL(this.getMobileUrl());
+  private buildPairingLink(baseUrl: string, values: { relayUrl: string; sessionId: string; pairingSecret: string }): string {
+    const url = new URL(baseUrl);
     url.hash = new URLSearchParams(values).toString();
     return url.toString();
+  }
+
+  private getPairingTargets(desktopRelayUrl: string): { mobileRelayUrl: string; mobileClientUrl: string; notes: string[] } {
+    const lanAddress = detectLanIPv4();
+    const configuredMobileRelayUrl = this.getMobileRelayUrl();
+    const configuredMobileUrl = this.getMobileUrl();
+    const mobileRelayUrl = configuredMobileRelayUrl || translateLoopbackUrl(desktopRelayUrl, lanAddress);
+    const mobileClientUrl = configuredMobileUrl || (lanAddress ? `http://${lanAddress}:4173` : "http://127.0.0.1:4173");
+    const notes: string[] = [];
+
+    if (!lanAddress) {
+      notes.push("No LAN IPv4 address was detected. Set remoteCodex.mobileUrl and remoteCodex.mobileRelayUrl manually for phone pairing.");
+      return { mobileRelayUrl, mobileClientUrl, notes };
+    }
+
+    if (!configuredMobileRelayUrl && isLoopbackUrl(desktopRelayUrl)) {
+      notes.push(`Phone relay URL auto-derived as ${mobileRelayUrl}. Start the relay with HOST=0.0.0.0 or another reachable interface.`);
+    }
+
+    if (!configuredMobileUrl) {
+      notes.push(`Phone web client URL auto-derived as ${mobileClientUrl}.`);
+    }
+
+    return { mobileRelayUrl, mobileClientUrl, notes };
   }
 
   private async showPairingPanel(session: ActiveSession): Promise<void> {
@@ -743,6 +781,9 @@ class RemoteCodexController implements vscode.Disposable {
       sessionId: session.sessionId,
       pairingSecret: session.pairingSecret,
       pairingLink: session.pairingLink,
+      pairingRelayUrl: session.pairingRelayUrl,
+      pairingClientUrl: session.pairingClientUrl,
+      pairingNotes: session.pairingNotes,
       qrCode
     });
     panel.webview.onDidReceiveMessage(async (message) => {
@@ -828,7 +869,19 @@ class Debouncer {
   }
 }
 
-function renderPairingPanelHtml(values: { sessionId: string; pairingSecret: string; pairingLink: string; qrCode: string }): string {
+function renderPairingPanelHtml(values: {
+  sessionId: string;
+  pairingSecret: string;
+  pairingLink: string;
+  pairingRelayUrl: string;
+  pairingClientUrl: string;
+  pairingNotes: string[];
+  qrCode: string;
+}): string {
+  const notesMarkup =
+    values.pairingNotes.length > 0
+      ? `<ul>${values.pairingNotes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>`
+      : "<p>No additional pairing notes.</p>";
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -864,6 +917,9 @@ function renderPairingPanelHtml(values: { sessionId: string; pairingSecret: stri
         background: rgba(15, 23, 42, 0.7);
         border-radius: 12px;
       }
+      ul {
+        padding-left: 20px;
+      }
       button {
         margin-top: 16px;
         border: 0;
@@ -882,8 +938,14 @@ function renderPairingPanelHtml(values: { sessionId: string; pairingSecret: stri
       <img src="${values.qrCode}" alt="Pairing QR code" />
       <p><strong>Session</strong><br />${values.sessionId}</p>
       <p><strong>Secret</strong><br />${values.pairingSecret}</p>
+      <p><strong>Phone relay URL</strong></p>
+      <code>${escapeHtml(values.pairingRelayUrl)}</code>
+      <p><strong>Phone web client URL</strong></p>
+      <code>${escapeHtml(values.pairingClientUrl)}</code>
       <p><strong>Pairing link</strong></p>
-      <code>${values.pairingLink}</code>
+      <code>${escapeHtml(values.pairingLink)}</code>
+      <p><strong>Notes</strong></p>
+      ${notesMarkup}
       <button id="copy">Copy Link</button>
     </div>
     <script>
@@ -962,6 +1024,47 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function detectLanIPv4(): string | undefined {
+  const interfaces = networkInterfaces();
+  for (const addresses of Object.values(interfaces)) {
+    for (const address of addresses ?? []) {
+      if (address.family === "IPv4" && !address.internal) {
+        return address.address;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function translateLoopbackUrl(input: string, lanAddress: string | undefined): string {
+  if (!lanAddress) {
+    return input;
+  }
+
+  try {
+    const url = new URL(input);
+    if (isLoopbackHost(url.hostname)) {
+      url.hostname = lanAddress;
+    }
+    return url.toString();
+  } catch {
+    return input;
+  }
+}
+
+function isLoopbackUrl(input: string): boolean {
+  try {
+    return isLoopbackHost(new URL(input).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 }
 
 export function activate(context: vscode.ExtensionContext): void {

@@ -44,12 +44,17 @@
         "remoteCodex.relayUrl": {
           "type": "string",
           "default": "ws://127.0.0.1:8787",
-          "description": "Secure websocket URL for the relay server."
+          "description": "Websocket URL the desktop extension itself uses to reach the relay."
+        },
+        "remoteCodex.mobileRelayUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Optional relay URL embedded into the phone pairing link. Leave empty to auto-derive a LAN URL from the desktop relay URL."
         },
         "remoteCodex.mobileUrl": {
           "type": "string",
-          "default": "http://127.0.0.1:4173",
-          "description": "URL of the mobile web client used for QR pairing."
+          "default": "",
+          "description": "Optional URL of the phone web client used for QR pairing. Leave empty to auto-derive a LAN URL on port 4173."
         },
         "remoteCodex.permissions.readWorkspace": {
           "type": "string",
