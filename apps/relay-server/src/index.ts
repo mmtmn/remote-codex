@@ -29,6 +29,8 @@ interface ConnectionState {
 const SESSION_TTL_MS = Number.parseInt(process.env.SESSION_TTL_MS ?? "900000", 10);
 const MAX_MESSAGES_PER_WINDOW = Number.parseInt(process.env.RATE_LIMIT_MAX_MESSAGES ?? "120", 10);
 const RATE_LIMIT_WINDOW_MS = Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? "10000", 10);
+const PORT = Number.parseInt(process.env.PORT ?? "8787", 10);
+const HOST = process.env.HOST ?? "127.0.0.1";
 
 const sessions = new Map<string, SessionRecord>();
 const connectionState = new WeakMap<WebSocket, ConnectionState>();
@@ -69,11 +71,8 @@ socketServer.on("connection", (socket) => {
   });
 });
 
-server.listen(Number.parseInt(process.env.PORT ?? "8787", 10), () => {
-  const address = server.address();
-  if (typeof address === "object" && address) {
-    console.log(`relay-server listening on http://127.0.0.1:${address.port}`);
-  }
+server.listen(PORT, HOST, () => {
+  console.log(formatStartupMessage(HOST, PORT));
 });
 
 setInterval(pruneExpiredSessions, 30_000).unref();
@@ -284,4 +283,17 @@ function send(socket: WebSocket, message: RelayOutgoingMessage): void {
   }
 
   socket.send(JSON.stringify(message));
+}
+
+function formatStartupMessage(host: string, port: number): string {
+  const healthPath = "/healthz";
+  if (host === "0.0.0.0" || host === "::") {
+    return [
+      `relay-server listening on ${host}:${port}`,
+      `local health check: http://127.0.0.1:${port}${healthPath}`,
+      "remote access still depends on firewall rules, NAT, and TLS/reverse-proxy setup."
+    ].join("\n");
+  }
+
+  return `relay-server listening on http://${host}:${port}${healthPath}`;
 }

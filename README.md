@@ -48,7 +48,23 @@ pnpm install
 pnpm --filter @remote-codex/relay-server dev
 ```
 
-The relay listens on `ws://127.0.0.1:8787` by default and exposes `GET /healthz`.
+This now runs the relay without file watching, which avoids the common Linux `ENOSPC` inotify limit crash during first-run setup.
+
+The relay binds to `127.0.0.1:8787` by default and exposes `GET /healthz`.
+
+If you want automatic reloads while developing the relay itself, use:
+
+```bash
+pnpm --filter @remote-codex/relay-server dev:watch
+```
+
+If `dev:watch` fails with `ENOSPC`, either keep using `dev` or raise your inotify watcher limit:
+
+```bash
+echo fs.inotify.max_user_watches=524288 | sudo tee /etc/sysctl.d/99-remote-codex.conf
+echo fs.inotify.max_user_instances=1024 | sudo tee -a /etc/sysctl.d/99-remote-codex.conf
+sudo sysctl --system
+```
 
 ### 3. Start the mobile client
 
@@ -92,9 +108,41 @@ From the desktop you control:
 
 All extension settings live under `remoteCodex.*`.
 
+## Network and firewall setup
+
+By default the relay is local-only:
+
+```bash
+HOST=127.0.0.1 PORT=8787 pnpm --filter @remote-codex/relay-server dev
+```
+
+That mode does not need `ufw` or `iptables` changes.
+
+If you intentionally want LAN or public access, bind the relay to `0.0.0.0` or a specific interface IP:
+
+```bash
+HOST=0.0.0.0 PORT=8787 pnpm --filter @remote-codex/relay-server dev
+```
+
+Then verify the firewall path on Linux:
+
+```bash
+pnpm doctor:linux-firewall
+```
+
+Typical commands if you mean to expose TCP `8787`:
+
+```bash
+sudo ufw allow 8787/tcp
+sudo iptables -I INPUT -p tcp --dport 8787 -j ACCEPT
+```
+
+Only do that for a relay you actually intend to expose. For internet-facing use, put it behind TLS and a reverse proxy and prefer a specific allowlist of source networks where possible.
+
 ## Production notes
 
 - Put the relay behind TLS before using it outside a trusted network.
+- Keep the default `HOST=127.0.0.1` unless you explicitly need remote access.
 - Treat the mobile client as untrusted for writes. Keep `remoteCodex.permissions.applyPatch` on `ask`.
 - Do not add shell pipelines, redirects, or mutation commands to `remoteCodex.commandAllowlist`.
 - Keep the relay ephemeral. This implementation stores sessions in memory and is meant for a single instance.
@@ -111,4 +159,3 @@ pnpm build
 ## Current scope
 
 This is a secure MVP aimed at the desktop-phone relay problem, not a full remote-control clone of the Codex VS Code extension internals. The desktop side invokes the local `codex` CLI in read-only mode and keeps final patch application local on purpose.
-

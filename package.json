@@ -15,8 +15,11 @@
     "test": "pnpm -r test",
     "check": "pnpm typecheck && pnpm test",
     "dev:relay": "pnpm --filter @remote-codex/relay-server dev",
+    "dev:relay:watch": "pnpm --filter @remote-codex/relay-server dev:watch",
+    "start:relay": "pnpm --filter @remote-codex/relay-server start",
     "dev:mobile": "pnpm --filter @remote-codex/mobile dev",
-    "dev:vscode": "pnpm --filter @remote-codex/vscode-extension watch"
+    "dev:vscode": "pnpm --filter @remote-codex/vscode-extension watch",
+    "doctor:linux-firewall": "bash ./scripts/check-linux-firewall.sh"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
@@ -25,4 +28,3 @@
     "vitest": "^3.1.1"
   }
 }
-

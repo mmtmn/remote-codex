@@ -9,6 +9,7 @@ COPY apps/relay-server ./apps/relay-server
 RUN corepack enable && pnpm install --frozen-lockfile
 RUN pnpm --filter @remote-codex/relay-server build
 
+ENV HOST=0.0.0.0
 ENV PORT=8787
 
 EXPOSE 8787

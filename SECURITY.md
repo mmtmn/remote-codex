@@ -22,6 +22,7 @@ Remote Codex assumes:
 
 ## Operational guidance
 
+- Keep the relay on `HOST=127.0.0.1` unless you explicitly need LAN or internet access.
 - Serve the relay over `wss://`.
 - Do not expose the development mobile server directly on the public internet.
 - Keep the command allowlist read-only.
@@ -37,4 +38,3 @@ Remote Codex assumes:
 ## Reporting
 
 Open a private security report through GitHub security advisories if you find a vulnerability that could expose local workspace data or permit unintended command execution.
-
