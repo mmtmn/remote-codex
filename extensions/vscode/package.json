@@ -1,0 +1,138 @@
+{
+  "name": "@remote-codex/vscode-extension",
+  "displayName": "Remote Codex Relay",
+  "description": "Use Codex from your phone with a secure relay and explicit local approvals.",
+  "version": "0.1.0",
+  "publisher": "mmtmn",
+  "private": true,
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:remoteCodex.startSession",
+    "onCommand:remoteCodex.stopSession",
+    "onCommand:remoteCodex.copyPairingLink",
+    "onCommand:remoteCodex.reviewLatestPatch"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "remoteCodex.startSession",
+        "title": "Remote Codex: Start Session"
+      },
+      {
+        "command": "remoteCodex.stopSession",
+        "title": "Remote Codex: Stop Session"
+      },
+      {
+        "command": "remoteCodex.copyPairingLink",
+        "title": "Remote Codex: Copy Pairing Link"
+      },
+      {
+        "command": "remoteCodex.reviewLatestPatch",
+        "title": "Remote Codex: Review Latest Patch"
+      }
+    ],
+    "configuration": {
+      "title": "Remote Codex",
+      "properties": {
+        "remoteCodex.relayUrl": {
+          "type": "string",
+          "default": "ws://127.0.0.1:8787",
+          "description": "Secure websocket URL for the relay server."
+        },
+        "remoteCodex.mobileUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:4173",
+          "description": "URL of the mobile web client used for QR pairing."
+        },
+        "remoteCodex.permissions.readWorkspace": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "default": "allow",
+          "description": "Whether the phone can read workspace snapshots, file previews, and git diffs."
+        },
+        "remoteCodex.permissions.runCodex": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "default": "ask",
+          "description": "Whether the phone can ask the desktop to run Codex in read-only planning mode."
+        },
+        "remoteCodex.permissions.runInspectionCommands": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "default": "ask",
+          "description": "Whether the phone can run allowlisted local inspection commands."
+        },
+        "remoteCodex.permissions.applyPatch": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "default": "ask",
+          "description": "Whether the phone can request a local patch review panel. Applying still requires a local button click."
+        },
+        "remoteCodex.commandAllowlist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "git status --short",
+            "git diff --stat",
+            "git diff --no-ext-diff"
+          ],
+          "description": "Exact local commands the phone may invoke. Commands must be simple executable-plus-args entries with no pipes or redirects."
+        },
+        "remoteCodex.codex.model": {
+          "type": "string",
+          "default": "",
+          "description": "Optional model override passed to the local codex CLI."
+        },
+        "remoteCodex.codex.extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional arguments forwarded to codex exec."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsup src/extension.ts --format cjs --external vscode",
+    "watch": "tsup src/extension.ts --format cjs --watch --external vscode",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@remote-codex/protocol": "workspace:*",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "@types/vscode": "^1.96.0",
+    "@types/ws": "^8.5.14"
+  }
+}

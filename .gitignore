@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.DS_Store
+.idea
+.vscode-test
+*.log
+*.tmp
+*.tsbuildinfo
+apps/mobile/.vite
+

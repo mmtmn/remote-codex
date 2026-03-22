@@ -1,0 +1,215 @@
+:root {
+  color-scheme: dark;
+  font-family: "Space Grotesk", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(78, 174, 193, 0.28), transparent 30%),
+    radial-gradient(circle at top right, rgba(155, 227, 170, 0.16), transparent 25%),
+    linear-gradient(180deg, #091221, #030712 65%);
+  color: #eef6ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: transparent;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.85rem 1.2rem;
+  background: linear-gradient(135deg, #9be3aa, #8dd3ff);
+  color: #03121d;
+  font-weight: 700;
+}
+
+button.ghost,
+button.pill {
+  background: rgba(12, 19, 33, 0.7);
+  color: #d8ecff;
+  border: 1px solid rgba(160, 195, 224, 0.24);
+}
+
+input,
+textarea {
+  width: 100%;
+  margin-top: 0.45rem;
+  border-radius: 18px;
+  border: 1px solid rgba(160, 195, 224, 0.18);
+  background: rgba(3, 10, 20, 0.68);
+  color: inherit;
+  padding: 0.9rem 1rem;
+}
+
+textarea {
+  min-height: 10rem;
+  resize: vertical;
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  padding: 1rem;
+  border-radius: 22px;
+  background: rgba(3, 10, 20, 0.82);
+  border: 1px solid rgba(160, 195, 224, 0.1);
+}
+
+.shell {
+  width: min(1120px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 1rem 0 4rem;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1rem;
+  align-items: start;
+  margin: 1rem 0 1.2rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: #8dd3ff;
+  font-size: 0.75rem;
+}
+
+.hero h1 {
+  margin: 0 0 0.85rem;
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 0.98;
+}
+
+.lede,
+.meta,
+.event span,
+.diagnostic span {
+  color: #b7cadb;
+}
+
+.status-card,
+.card {
+  backdrop-filter: blur(18px);
+  background: linear-gradient(180deg, rgba(12, 19, 33, 0.86), rgba(4, 9, 17, 0.9));
+  border: 1px solid rgba(160, 195, 224, 0.12);
+  border-radius: 30px;
+  padding: 1.15rem;
+  box-shadow: 0 20px 60px rgba(2, 6, 23, 0.34);
+}
+
+.status-card {
+  min-height: 100%;
+}
+
+.status-label {
+  display: inline-flex;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(141, 211, 255, 0.14);
+  color: #8dd3ff;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+}
+
+.status-connected .status-label {
+  background: rgba(155, 227, 170, 0.16);
+  color: #9be3aa;
+}
+
+.status-error .status-label {
+  background: rgba(252, 165, 165, 0.16);
+  color: #fecaca;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.card h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
+}
+
+.card-header,
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.actions {
+  margin-top: 1rem;
+  justify-content: flex-start;
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1rem 0;
+}
+
+.pill {
+  border-radius: 18px;
+  padding: 0.65rem 0.9rem;
+}
+
+.diagnostics,
+.event-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.diagnostic,
+.event {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(160, 195, 224, 0.08);
+}
+
+label {
+  display: block;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    width: min(100vw - 1rem, 1120px);
+  }
+
+  .hero,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-header,
+  .actions {
+    flex-wrap: wrap;
+  }
+}

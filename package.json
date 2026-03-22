@@ -1,0 +1,28 @@
+{
+  "name": "remote-codex",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Secure phone relay for Codex and VS Code.",
+  "packageManager": "pnpm@10.28.1",
+  "workspaces": [
+    "apps/*",
+    "extensions/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "check": "pnpm typecheck && pnpm test",
+    "dev:relay": "pnpm --filter @remote-codex/relay-server dev",
+    "dev:mobile": "pnpm --filter @remote-codex/mobile dev",
+    "dev:vscode": "pnpm --filter @remote-codex/vscode-extension watch"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
+  }
+}
+
