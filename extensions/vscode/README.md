@@ -2,6 +2,8 @@
 
 Remote Codex Relay is a VS Code companion extension that lets your phone pair with the current VS Code session through a secure relay.
 
+If you want the exact desktop Codex UI on the phone, use the repository's stream mode (`pnpm stream`) so the browser renders the real desktop session. This extension still powers the paired relay workflow when you want explicit mobile-side controls instead of raw screen streaming.
+
 It depends on the official OpenAI VS Code extension (`openai.chatgpt`) and adds:
 
 - encrypted pairing for the phone client

@@ -167,8 +167,8 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm build",
-    "build": "tsup src/extension.ts --format cjs --external vscode",
-    "watch": "tsup src/extension.ts --format cjs --watch --external vscode",
+    "build": "tsup --config tsup.config.ts",
+    "watch": "tsup --config tsup.config.ts --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "package:vsix": "vsce package --no-dependencies --out ../../dist/remote-codex-relay.vsix",

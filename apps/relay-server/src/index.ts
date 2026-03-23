@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { connect as connectTcp } from "node:net";
 
 import {
   type PermissionPolicy,
@@ -7,7 +8,7 @@ import {
   type RelayIncomingMessage,
   sha256Hex
 } from "@remote-codex/protocol";
-import { WebSocketServer, type WebSocket } from "ws";
+import { WebSocketServer, type RawData, type WebSocket } from "ws";
 import { z } from "zod";
 
 interface SessionRecord {
@@ -31,6 +32,10 @@ const MAX_MESSAGES_PER_WINDOW = Number.parseInt(process.env.RATE_LIMIT_MAX_MESSA
 const RATE_LIMIT_WINDOW_MS = Number.parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? "10000", 10);
 const PORT = Number.parseInt(process.env.PORT ?? "8787", 10);
 const HOST = process.env.HOST ?? "127.0.0.1";
+const VNC_PROXY_ENABLED = process.env.VNC_PROXY_ENABLED === "1";
+const VNC_PROXY_TOKEN = process.env.VNC_PROXY_TOKEN ?? "";
+const VNC_TARGET_HOST = process.env.VNC_TARGET_HOST ?? "127.0.0.1";
+const VNC_TARGET_PORT = Number.parseInt(process.env.VNC_TARGET_PORT ?? "5900", 10);
 
 const sessions = new Map<string, SessionRecord>();
 const connectionState = new WeakMap<WebSocket, ConnectionState>();
@@ -46,9 +51,35 @@ const server = createServer((request, response) => {
   response.end(JSON.stringify({ error: "not_found" }));
 });
 
-const socketServer = new WebSocketServer({ server });
+const relaySocketServer = new WebSocketServer({ noServer: true });
+const vncSocketServer = new WebSocketServer({ noServer: true, perMessageDeflate: false });
 
-socketServer.on("connection", (socket) => {
+server.on("upgrade", (request, socket, head) => {
+  const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
+
+  if (requestUrl.pathname === "/vnc") {
+    if (!VNC_PROXY_ENABLED || !VNC_PROXY_TOKEN) {
+      rejectUpgrade(socket, 404, "VNC proxy is not enabled.");
+      return;
+    }
+
+    if (requestUrl.searchParams.get("token") !== VNC_PROXY_TOKEN) {
+      rejectUpgrade(socket, 401, "Invalid VNC proxy token.");
+      return;
+    }
+
+    vncSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
+      vncSocketServer.emit("connection", webSocket);
+    });
+    return;
+  }
+
+  relaySocketServer.handleUpgrade(request, socket, head, (webSocket) => {
+    relaySocketServer.emit("connection", webSocket);
+  });
+});
+
+relaySocketServer.on("connection", (socket) => {
   connectionState.set(socket, { recentMessages: [] });
 
   socket.on("message", async (raw) => {
@@ -68,6 +99,43 @@ socketServer.on("connection", (socket) => {
 
   socket.on("close", () => {
     unregisterSocket(socket);
+  });
+});
+
+vncSocketServer.on("connection", (socket) => {
+  const upstream = connectTcp(VNC_TARGET_PORT, VNC_TARGET_HOST);
+
+  upstream.on("connect", () => {
+    console.log(`vnc-proxy connected ${VNC_TARGET_HOST}:${VNC_TARGET_PORT}`);
+  });
+
+  upstream.on("data", (chunk) => {
+    if (socket.readyState === socket.OPEN) {
+      socket.send(chunk, { binary: true });
+    }
+  });
+
+  upstream.on("error", (error) => {
+    console.error(`vnc-proxy upstream error: ${error.message}`);
+    socket.close(1011, "vnc_upstream_error");
+  });
+
+  upstream.on("close", () => {
+    if (socket.readyState === socket.OPEN) {
+      socket.close(1000, "vnc_upstream_closed");
+    }
+  });
+
+  socket.on("message", (raw, isBinary) => {
+    upstream.write(toBuffer(raw, isBinary));
+  });
+
+  socket.on("close", () => {
+    upstream.end();
+  });
+
+  socket.on("error", () => {
+    upstream.destroy();
   });
 });
 
@@ -256,6 +324,27 @@ function unregisterSocket(socket: WebSocket): void {
       });
     }
   }
+}
+
+function rejectUpgrade(socket: import("node:stream").Duplex, statusCode: number, message: string): void {
+  socket.write(`HTTP/1.1 ${statusCode} ${message}\r\nConnection: close\r\n\r\n`);
+  socket.destroy();
+}
+
+function toBuffer(raw: RawData, isBinary: boolean): Buffer {
+  if (Buffer.isBuffer(raw)) {
+    return raw;
+  }
+
+  if (raw instanceof ArrayBuffer) {
+    return Buffer.from(raw);
+  }
+
+  if (Array.isArray(raw)) {
+    return Buffer.concat(raw.map((chunk) => (Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))));
+  }
+
+  return Buffer.from(String(raw), isBinary ? "binary" : "utf8");
 }
 
 function pruneExpiredSessions(): void {

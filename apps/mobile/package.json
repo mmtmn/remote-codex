@@ -17,6 +17,7 @@
     "@remote-codex/protocol": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-vnc": "^3.2.0",
     "workbox-window": "^7.3.0"
   },
   "devDependencies": {

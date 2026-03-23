@@ -1,12 +1,14 @@
 # Remote Codex
 
-Use Codex from your phone without turning your desktop into an unaudited remote shell.
+Use Codex from your phone, either by streaming the real VS Code window to the browser or by using the relay controls, without turning your desktop into an unaudited remote shell.
 
 This repository ships three pieces:
 
 - `extensions/vscode`: the trusted desktop companion extension inside regular VS Code
 - `apps/relay-server`: a self-hostable websocket relay that only brokers session setup and encrypted envelopes
-- `apps/mobile`: an Android-friendly PWA for pairing, workspace inspection, prompt submission, and patch review requests
+- `apps/mobile`: an Android-friendly browser client that can either render a real desktop stream or fall back to the relay control surface
+
+The stream path is the closest match to the actual Codex extension UI because it renders the real desktop session. The relay path is still available when you want explicit workspace controls instead of a raw remote display.
 
 ## Why this shape
 
@@ -34,7 +36,7 @@ The relay never decrypts file contents, diffs, prompts, or patch proposals.
 - Codex runs in `read-only` sandbox mode and returns a patch proposal instead of editing the workspace directly.
 - Patch application is always a local action in VS Code.
 
-Read [SECURITY.md](/home/mmtmn/remote-codex/SECURITY.md) before exposing the relay to the internet.
+Read [SECURITY.md](./SECURITY.md) before exposing the relay to the internet.
 
 ## Quickstart
 
@@ -44,7 +46,68 @@ Read [SECURITY.md](/home/mmtmn/remote-codex/SECURITY.md) before exposing the rel
 pnpm install
 ```
 
-### 2. Start the relay
+### 2. Stream the real desktop Codex UI
+
+If you want the actual VS Code and Codex window on your phone, use the stream mode:
+
+```bash
+pnpm stream
+```
+
+That command starts the relay and browser viewer, enables the built-in VNC proxy, and prints the phone URL to open.
+
+If the machine has more than one active network interface, the CLI will print multiple candidate phone URLs. Use the one that matches the network your phone is actually on. If you want to force one, pass `--mobile-host`, for example:
+
+```bash
+pnpm stream -- --mobile-host <phone-reachable-host>
+```
+
+On Linux/X11, it will also auto-start `x11vnc` when that helper is installed. If you do not already have it:
+
+```bash
+sudo apt install x11vnc
+```
+
+Open VS Code locally, open the Codex sidebar, then open the printed phone URL in the browser on your phone.
+
+Do not open that stream URL in a browser on the same desktop session you are capturing. That creates a recursive screen-within-screen feedback loop and can overwhelm the local desktop. If you need a quick local test, use a second device, a second monitor that is not being mirrored back into the captured area, or a different remote viewer setup.
+
+If you already have your own VNC server, point the stream mode at it instead:
+
+```bash
+pnpm stream -- --vnc-host 127.0.0.1 --vnc-port 5900 --no-x11vnc
+```
+
+### 3. Start the relay console instead
+
+Use one terminal if you want the repo to launch both long-running services for you:
+
+```bash
+pnpm start
+```
+
+That command starts:
+
+- the relay on `ws://0.0.0.0:8787`
+- the mobile web client on `http://0.0.0.0:4173`
+
+If you want a plain shell command in your `PATH`, link the repo once and then run the CLI directly:
+
+```bash
+npm link
+remote-codex start
+```
+
+If you prefer separate terminals, the individual commands are still:
+
+```bash
+HOST=0.0.0.0 PORT=8787 pnpm --filter @remote-codex/relay-server dev
+pnpm --filter @remote-codex/mobile dev
+```
+
+Inside the repo, the simplest command is `pnpm start`. The VS Code command palette command is `Remote Codex: Start Session`.
+
+### 4. Relay details
 
 ```bash
 HOST=0.0.0.0 PORT=8787 pnpm --filter @remote-codex/relay-server dev
@@ -68,7 +131,7 @@ echo fs.inotify.max_user_instances=1024 | sudo tee -a /etc/sysctl.d/99-remote-co
 sudo sysctl --system
 ```
 
-### 3. Start the mobile client
+### 5. Mobile client details
 
 ```bash
 pnpm --filter @remote-codex/mobile dev
@@ -86,7 +149,7 @@ If `dev:watch` fails with `ENOSPC`, either keep using `dev` or raise your inotif
 
 Open the served mobile URL on your phone, or deploy the built `apps/mobile/dist` bundle to any static host.
 
-### 4. Package and install the VS Code companion extension
+### 6. Package and install the VS Code companion extension
 
 ```bash
 pnpm package:extension
@@ -95,19 +158,21 @@ code --install-extension dist/remote-codex-relay.vsix --force
 
 The packaged extension depends on the official OpenAI VS Code extension (`openai.chatgpt`). Install that first if you do not already have it.
 
-### 5. Start a session from regular VS Code
+### 7. Start a session from regular VS Code
 
 1. Open the repository you actually want to work on in regular VS Code.
 2. Set these settings if the auto-detected hotspot/LAN address is wrong:
    - `remoteCodex.relayUrl`
    - `remoteCodex.mobileUrl`
    - `remoteCodex.mobileRelayUrl`
-3. Run `Remote Codex: Start Session`.
+3. Open the Command Palette in VS Code and run `Remote Codex: Start Session`.
 4. Scan the QR code from the phone client.
+
+Do not type `Remote Codex: Start Session` into a shell. That is a VS Code command, not a terminal command.
 
 The extension will auto-derive LAN-friendly pairing URLs when possible. If it guesses the wrong interface because of VPNs or multiple NICs, set `remoteCodex.mobileUrl` and `remoteCodex.mobileRelayUrl` manually.
 
-### 6. Remote workflow
+### 8. Remote workflow
 
 From the phone you can:
 
@@ -187,7 +252,7 @@ pnpm build
 If you are developing the companion extension itself, the old extension-host loop is still available:
 
 ```bash
-code /home/mmtmn/remote-codex/extensions/vscode
+code extensions/vscode
 ```
 
 Then press `F5` inside that extension workspace to launch an Extension Development Host.

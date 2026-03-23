@@ -10,6 +10,7 @@ import {
   RelayOutgoingSchema,
   type WorkspaceSnapshot
 } from "@remote-codex/protocol";
+import { StreamViewer } from "./StreamViewer";
 
 type ConnectionPhase = "idle" | "connecting" | "connected" | "error";
 
@@ -25,20 +26,33 @@ interface SessionState {
   sharedKey: Uint8Array;
 }
 
-function readHashParams(): { relayUrl: string; sessionId: string; pairingSecret: string } {
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+function readLocationParams(): {
+  mode: string;
+  relayUrl: string;
+  sessionId: string;
+  pairingSecret: string;
+  title: string;
+  vncUrl: string;
+} {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const pick = (key: string, fallback = "") => searchParams.get(key) ?? hashParams.get(key) ?? fallback;
+
   return {
-    relayUrl: params.get("relayUrl") ?? "ws://127.0.0.1:8787",
-    sessionId: params.get("sessionId") ?? "",
-    pairingSecret: params.get("pairingSecret") ?? ""
+    mode: pick("mode"),
+    relayUrl: pick("relayUrl", "ws://127.0.0.1:8787"),
+    sessionId: pick("sessionId"),
+    pairingSecret: pick("pairingSecret"),
+    title: pick("title", "VS Code / Codex"),
+    vncUrl: pick("vncUrl")
   };
 }
 
 export function App() {
-  const initialHash = useMemo(() => readHashParams(), []);
-  const [relayUrl, setRelayUrl] = useState(initialHash.relayUrl);
-  const [sessionId, setSessionId] = useState(initialHash.sessionId);
-  const [pairingSecret, setPairingSecret] = useState(initialHash.pairingSecret);
+  const initialParams = useMemo(() => readLocationParams(), []);
+  const [relayUrl, setRelayUrl] = useState(initialParams.relayUrl);
+  const [sessionId, setSessionId] = useState(initialParams.sessionId);
+  const [pairingSecret, setPairingSecret] = useState(initialParams.pairingSecret);
   const [phase, setPhase] = useState<ConnectionPhase>("idle");
   const [statusMessage, setStatusMessage] = useState("Waiting to pair.");
   const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null);
@@ -272,171 +286,250 @@ export function App() {
     });
   }
 
+  const visibleFiles = snapshot?.visibleFiles ?? [];
+  const diagnostics = snapshot?.diagnostics ?? [];
+  const timeline = [...events].reverse();
+  const relayMode =
+    initialParams.mode === "relay" ||
+    initialParams.mode === "pair" ||
+    !!initialParams.sessionId ||
+    !!initialParams.pairingSecret;
+  const streamMode = !relayMode;
+
+  if (streamMode) {
+    return <StreamViewer initialTitle={initialParams.title} initialVncUrl={initialParams.vncUrl} />;
+  }
+
   return (
-    <main className="shell">
-      <section className="hero">
-        <div>
-          <p className="eyebrow">Remote Codex</p>
-          <h1>Relay your desktop coding context to your phone without handing over the keys.</h1>
-          <p className="lede">
-            The relay only forwards encrypted payloads. Workspace reads can be allowed, asked, or denied. Patch application
-            still requires a local VS Code click.
+    <main className="app-shell">
+      <header className="app-header">
+        <div className="header-copy">
+          <p className="app-kicker">Remote Codex</p>
+          <h1>Codex Relay Console</h1>
+          <p className="app-summary">
+            A phone-side control surface for the desktop Codex extension. Pair once, then drive the real desktop thread,
+            inspect context, and review proposed patches without exposing arbitrary shell access.
           </p>
         </div>
-        <div className={`status-card status-${phase}`}>
+        <div className={`status-strip status-${phase}`}>
           <span className="status-label">{phase}</span>
           <p>{statusMessage}</p>
         </div>
-      </section>
+      </header>
 
-      <section className="card">
-        <h2>Pairing</h2>
-        <label>
-          Relay URL
-          <input value={relayUrl} onChange={(event) => setRelayUrl(event.target.value)} placeholder="ws://127.0.0.1:8787" />
-        </label>
-        <label>
-          Session ID
-          <input value={sessionId} onChange={(event) => setSessionId(event.target.value.toUpperCase())} />
-        </label>
-        <label>
-          Pairing Secret
-          <input value={pairingSecret} onChange={(event) => setPairingSecret(event.target.value.toUpperCase())} />
-        </label>
-        <div className="actions">
-          <button onClick={connect}>Connect</button>
-          <button className="ghost" onClick={() => sendEncrypted({ type: "requestSnapshot" })}>
-            Refresh Snapshot
-          </button>
-        </div>
-      </section>
-
-      <section className="grid">
-        <article className="card">
-          <div className="card-header">
-            <h2>Workspace</h2>
-            <button className="ghost" onClick={() => requestGitDiff()}>
-              Repo Diff
-            </button>
-          </div>
-          {snapshot ? (
-            <>
-              <p className="meta">
-                Active file: <strong>{snapshot.activeFile ?? "None"}</strong>
-              </p>
-              <pre>{snapshot.gitStatus || "No git status output."}</pre>
-              <div className="pill-row">
-                {snapshot.visibleFiles.map((file) => (
-                  <button key={file.path} className="pill" onClick={() => requestFile(file.path)}>
-                    {file.path}
-                  </button>
-                ))}
+      <section className="workspace-frame">
+        <aside className="rail rail-left">
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Session</p>
+                <h2>Pair Desktop</h2>
               </div>
-              <div className="diagnostics">
-                {snapshot.diagnostics.map((entry) => (
-                  <div key={entry.path} className="diagnostic">
-                    <strong>{entry.path}</strong>
-                    <span>
-                      {entry.errors} errors / {entry.warnings} warnings
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p>No snapshot yet.</p>
-          )}
-        </article>
-
-        <article className="card">
-          <div className="card-header">
-            <h2>File Preview</h2>
-            {selectedFile ? (
-              <button className="ghost" onClick={() => requestGitDiff(selectedFile.path)}>
-                Diff This File
+            </div>
+            <label>
+              Relay URL
+              <input value={relayUrl} onChange={(event) => setRelayUrl(event.target.value)} placeholder="ws://127.0.0.1:8787" />
+            </label>
+            <label>
+              Session ID
+              <input value={sessionId} onChange={(event) => setSessionId(event.target.value.toUpperCase())} />
+            </label>
+            <label>
+              Pairing Secret
+              <input value={pairingSecret} onChange={(event) => setPairingSecret(event.target.value.toUpperCase())} />
+            </label>
+            <div className="actions">
+              <button onClick={connect}>Connect</button>
+              <button className="ghost" onClick={() => sendEncrypted({ type: "requestSnapshot" })}>
+                Refresh
               </button>
-            ) : null}
-          </div>
-          <p className="meta">{selectedFile?.path ?? "Pick a visible file from the workspace card."}</p>
-          <pre>{selectedFile?.content ?? "No file selected."}</pre>
-        </article>
-      </section>
+            </div>
+          </article>
 
-      <section className="grid">
-        <article className="card">
-          <div className="card-header">
-            <h2>Inspection Commands</h2>
-          </div>
-          {commands.length > 0 ? (
-            <div className="pill-row">
-              {commands.map((command) => (
-                <button key={command} className="pill" onClick={() => runCommand(command)}>
-                  {command}
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Desktop Context</p>
+                <h2>Workspace Mirror</h2>
+              </div>
+              <button className="ghost" onClick={() => requestGitDiff()}>
+                Repo Diff
+              </button>
+            </div>
+            {snapshot ? (
+              <>
+                <p className="panel-meta">
+                  Active file: <strong>{snapshot.activeFile ?? "None"}</strong>
+                </p>
+                <pre className="compact-pre">{snapshot.gitStatus || "No git status output."}</pre>
+
+                <div className="section-block">
+                  <div className="section-header">
+                    <h3>Visible Files</h3>
+                    <span>{visibleFiles.length}</span>
+                  </div>
+                  <div className="token-grid">
+                    {visibleFiles.map((file) => (
+                      <button key={file.path} className="token" onClick={() => requestFile(file.path)}>
+                        {file.path}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="section-block">
+                  <div className="section-header">
+                    <h3>Diagnostics</h3>
+                    <span>{diagnostics.length}</span>
+                  </div>
+                  {diagnostics.length > 0 ? (
+                    <div className="stack-list">
+                      {diagnostics.map((entry) => (
+                        <div key={entry.path} className="stack-item">
+                          <strong>{entry.path}</strong>
+                          <span>
+                            {entry.errors} errors / {entry.warnings} warnings
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="panel-meta">No diagnostics pushed yet.</p>
+                  )}
+                </div>
+
+                <div className="section-block">
+                  <div className="section-header">
+                    <h3>Allowed Commands</h3>
+                    <span>{commands.length}</span>
+                  </div>
+                  {commands.length > 0 ? (
+                    <div className="token-grid">
+                      {commands.map((command) => (
+                        <button key={command} className="token" onClick={() => runCommand(command)}>
+                          {command}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="panel-meta">No commands advertised by the desktop yet.</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="panel-meta">Connect first to mirror the current desktop workspace.</p>
+            )}
+          </article>
+        </aside>
+
+        <section className="center-column">
+          <article className="panel thread-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Thread</p>
+                <h2>Codex Relay Activity</h2>
+              </div>
+              <span className="panel-chip">{timeline.length} events</span>
+            </div>
+            <div className="message-list">
+              {timeline.length > 0 ? (
+                timeline.map((event) => (
+                  <div key={event.id} className="message">
+                    <span className="message-tag">{event.label}</span>
+                    <p>{event.detail}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="message empty-message">
+                  <span className="message-tag">Ready</span>
+                  <p>Connect to a session, open the desktop Codex sidebar, and this feed becomes your remote thread log.</p>
+                </div>
+              )}
+            </div>
+          </article>
+
+          <article className="panel composer-panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Desktop Actions</p>
+                <h2>Codex Controls</h2>
+              </div>
+            </div>
+            <div className="action-cluster">
+              <button className="token" onClick={() => requestCodexUi("openSidebar")}>
+                Open Sidebar
+              </button>
+              <button className="token" onClick={() => requestCodexUi("newThread")}>
+                New Thread
+              </button>
+              <button className="token" onClick={() => requestCodexUi("addSelection")}>
+                Add Selection
+              </button>
+              <button className="token" onClick={() => requestCodexUi("addFile")}>
+                Add File
+              </button>
+            </div>
+            <p className="panel-meta">
+              These controls target the real desktop Codex extension. File and selection actions use the active editor on the
+              desktop and still respect local approval settings.
+            </p>
+            <label className="composer-label">
+              Prompt
+              <textarea
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="Describe the change you want desktop Codex to propose."
+              />
+            </label>
+            <div className="actions">
+              <button onClick={submitPrompt}>Send To Desktop Codex</button>
+              {proposal ? (
+                <button className="ghost" onClick={requestPatchApply}>
+                  Request Apply
                 </button>
-              ))}
+              ) : null}
             </div>
-          ) : (
-            <p>No commands advertised by the desktop yet.</p>
-          )}
-          <pre>{gitDiff || "Request a repo or file diff to inspect changes."}</pre>
-        </article>
+          </article>
+        </section>
 
-        <article className="card">
-          <div className="card-header">
-            <h2>Official Codex</h2>
-          </div>
-          <p className="meta">Trigger the installed Codex extension on the desktop without exposing arbitrary VS Code commands.</p>
-          <div className="pill-row">
-            <button className="pill" onClick={() => requestCodexUi("openSidebar")}>
-              Open Sidebar
-            </button>
-            <button className="pill" onClick={() => requestCodexUi("newThread")}>
-              New Thread
-            </button>
-            <button className="pill" onClick={() => requestCodexUi("addSelection")}>
-              Add Selection
-            </button>
-            <button className="pill" onClick={() => requestCodexUi("addFile")}>
-              Add File
-            </button>
-          </div>
-          <p className="meta">The selection and file actions use the active editor on the desktop and still respect local permission prompts.</p>
-        </article>
-
-        <article className="card">
-          <div className="card-header">
-            <h2>Run Codex</h2>
-            {proposal ? <button onClick={requestPatchApply}>Request Apply</button> : null}
-          </div>
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Describe the change you want the desktop Codex instance to propose."
-          />
-          <div className="actions">
-            <button onClick={submitPrompt}>Send Prompt</button>
-          </div>
-          {proposal ? (
-            <>
-              <p className="meta">{proposal.summary}</p>
-              <pre>{proposal.patch || "Codex did not propose a patch."}</pre>
-            </>
-          ) : (
-            <p>No proposal yet.</p>
-          )}
-        </article>
-      </section>
-
-      <section className="card">
-        <h2>Event Feed</h2>
-        <div className="event-list">
-          {events.map((event) => (
-            <div key={event.id} className="event">
-              <strong>{event.label}</strong>
-              <span>{event.detail}</span>
+        <aside className="rail rail-right">
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Mirror</p>
+                <h2>Active File</h2>
+              </div>
+              {selectedFile ? (
+                <button className="ghost" onClick={() => requestGitDiff(selectedFile.path)}>
+                  Diff File
+                </button>
+              ) : null}
             </div>
-          ))}
-        </div>
+            <p className="panel-meta">{selectedFile?.path ?? snapshot?.activeFile ?? "No file selected yet."}</p>
+            <pre>{selectedFile?.content ?? "Pick a visible file from the workspace mirror to inspect it here."}</pre>
+          </article>
+
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Changes</p>
+                <h2>Desktop Diff</h2>
+              </div>
+            </div>
+            <pre>{gitDiff || "Request a repo or file diff to inspect desktop changes."}</pre>
+          </article>
+
+          <article className="panel">
+            <div className="panel-header">
+              <div>
+                <p className="panel-kicker">Patch</p>
+                <h2>Proposal Review</h2>
+              </div>
+            </div>
+            <p className="panel-meta">{proposal?.summary ?? "No patch proposal yet."}</p>
+            <pre>{proposal?.patch || "Ask Codex for a change and its proposed patch will appear here."}</pre>
+          </article>
+        </aside>
       </section>
     </main>
   );

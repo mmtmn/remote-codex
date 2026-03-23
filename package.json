@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "description": "Secure phone relay for Codex and VS Code.",
+  "bin": {
+    "remote-codex": "./scripts/remote-codex.mjs"
+  },
   "packageManager": "pnpm@10.28.1",
   "workspaces": [
     "apps/*",
@@ -10,6 +13,10 @@
     "packages/*"
   ],
   "scripts": {
+    "start": "node ./scripts/remote-codex.mjs start",
+    "start:watch": "node ./scripts/remote-codex.mjs start --watch",
+    "stream": "node ./scripts/remote-codex.mjs stream",
+    "stream:watch": "node ./scripts/remote-codex.mjs stream --watch",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

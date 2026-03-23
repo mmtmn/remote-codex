@@ -38,6 +38,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.4(react@19.2.4)
+      react-vnc:
+        specifier: ^3.2.0
+        version: 3.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       workbox-window:
         specifier: ^7.3.0
         version: 7.4.0
@@ -1035,6 +1038,9 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
+  '@novnc/novnc@1.6.0':
+    resolution: {integrity: sha512-CJrmdSe9Yt2ZbLsJpVFoVkEu0KICEvnr3njW25Nz0jodaiFJtg8AYLGZogRYy0/N5HUWkGUsCmegKXYBSqwygw==}
+
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
 
@@ -1308,6 +1314,9 @@ packages:
 
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
+
+  '@types/novnc__novnc@1.6.0':
+    resolution: {integrity: sha512-kIH/PQACbf9qj6whiSXRKECpyzgs6IFNVsW4wohyqQUZfQHdLhuGRMLi9XEhBiISSh0lKCSbBa7kScuPu9Gk+Q==}
 
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
@@ -2687,6 +2696,12 @@ packages:
   react-refresh@0.17.0:
     resolution: {integrity: sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==}
     engines: {node: '>=0.10.0'}
+
+  react-vnc@3.2.0:
+    resolution: {integrity: sha512-PnlcleDjVI7gUKaSX5+94MMadxee8avAJP10vlHvT2JBLVd2vEGdyWcs3KQ/9STK7mj/Ht6gFQpwEc3BYh/4GQ==}
+    peerDependencies:
+      react: '>=19.0.0'
+      react-dom: '>=19.0.0'
 
   react@19.2.4:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
@@ -4428,6 +4443,8 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
+  '@novnc/novnc@1.6.0': {}
+
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 
   '@rollup/plugin-babel@5.3.1(@babel/core@7.29.0)(@types/babel__core@7.20.5)(rollup@2.80.0)':
@@ -4704,6 +4721,8 @@ snapshots:
       undici-types: 6.21.0
 
   '@types/normalize-package-data@2.4.4': {}
+
+  '@types/novnc__novnc@1.6.0': {}
 
   '@types/qrcode@1.5.6':
     dependencies:
@@ -6225,6 +6244,13 @@ snapshots:
       scheduler: 0.27.0
 
   react-refresh@0.17.0: {}
+
+  react-vnc@3.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+    dependencies:
+      '@novnc/novnc': 1.6.0
+      '@types/novnc__novnc': 1.6.0
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
 
   react@19.2.4: {}
 
